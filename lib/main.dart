@@ -1,4 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'services/auth_service.dart';
+import 'config/app_config.dart';
+import 'settings_screen.dart';
 
 void main() => runApp(const ResiBotApp());
 
@@ -65,33 +70,127 @@ class Invoice {
   Invoice(this.vendor, this.category, this.amount, this.date, this.time);
 }
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  bool loading = false;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> login() async {
+    if (emailController.text.trim().isEmpty ||
+        passwordController.text.trim().isEmpty) {
+      showMessage('Please enter your email and password.');
+      return;
+    }
+
+    setState(() => loading = true);
+
+    try {
+      await AuthService.login(
+        email: emailController.text,
+        password: passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+      );
+    } catch (e) {
+      showMessage(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return AuthShell(
-      top: Column(children: [
-        const SizedBox(height: 42),
-        Image.asset(Assets.logoLogin, height: 210),
-        const SizedBox(height: 12),
-      ]),
+      top: Column(
+        children: [
+          const SizedBox(height: 42),
+          Image.asset(Assets.logoLogin, height: 210),
+          const SizedBox(height: 12),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Welcome', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.purple)),
-          const Text('Login to continue', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text(
+            'Welcome',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: AppColors.purple,
+            ),
+          ),
+          const Text(
+            'Login to continue',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
           const SizedBox(height: 30),
-          AppInput(hint: 'Email', icon: Assets.gmail),
+          AppInput(
+            hint: 'Email',
+            icon: Assets.gmail,
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+          ),
           const SizedBox(height: 14),
-          AppInput(hint: 'Password', icon: Assets.password, obscure: true),
+          AppInput(
+            hint: 'Password',
+            icon: Assets.password,
+            obscure: true,
+            controller: passwordController,
+          ),
           const SizedBox(height: 26),
-          PrimaryButton(label: 'SIGN IN', onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainShell()))),
+          PrimaryButton(
+            label: loading ? 'SIGNING IN...' : 'SIGN IN',
+            onTap: loading ? () {} : login,
+          ),
           const SizedBox(height: 18),
           Center(
             child: GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignupInfoScreen())),
-              child: RichText(text: const TextSpan(text: "Don't have an account? ", style: TextStyle(color: Colors.grey, fontSize: 12), children: [TextSpan(text: 'Sign Up', style: TextStyle(color: AppColors.purple, fontWeight: FontWeight.bold))])),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SignupInfoScreen()),
+              ),
+              child: RichText(
+                text: const TextSpan(
+                  text: "Don't have an account? ",
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                  children: [
+                    TextSpan(
+                      text: 'Sign Up',
+                      style: TextStyle(
+                        color: AppColors.purple,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -100,80 +199,393 @@ class LoginScreen extends StatelessWidget {
   }
 }
 
-class SignupInfoScreen extends StatelessWidget {
+class SignupInfoScreen extends StatefulWidget {
   const SignupInfoScreen({super.key});
+
+  @override
+  State<SignupInfoScreen> createState() => _SignupInfoScreenState();
+}
+
+class _SignupInfoScreenState extends State<SignupInfoScreen> {
+  final fullNameController = TextEditingController();
+  final emailController = TextEditingController();
+  final phoneController = TextEditingController();
+
+  String profilePicture = '';
+  String profilePictureName = '';
+  String profilePictureType = '';
+
+  @override
+  void dispose() {
+    fullNameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> pickProfilePicture() async {
+    final picker = ImagePicker();
+
+    final pickedImage = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 60,
+      maxWidth: 800,
+    );
+
+    if (pickedImage == null) return;
+
+    final bytes = await pickedImage.readAsBytes();
+
+    setState(() {
+      profilePicture = base64Encode(bytes);
+      profilePictureName = pickedImage.name;
+      profilePictureType = pickedImage.mimeType ?? 'image/jpeg';
+    });
+  }
+
+  void next() {
+    if (fullNameController.text.trim().isEmpty ||
+        emailController.text.trim().isEmpty ||
+        phoneController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete all fields.')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SignupPasswordScreen(
+          fullName: fullNameController.text,
+          email: emailController.text,
+          phone: phoneController.text,
+          profilePicture: profilePicture,
+          profilePictureName: profilePictureName,
+          profilePictureType: profilePictureType,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return AuthShell(
       compactLogo: true,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Sign Up', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.purple)),
-        const Text('Please add your picture and details.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
-        const SizedBox(height: 28),
-        CircleAvatar(radius: 42, backgroundColor: const Color(0xFFF1EEF4), child: Image.asset(Assets.user, height: 42)),
-        const SizedBox(height: 28),
-        AppInput(hint: 'Full Name', icon: Assets.user),
-        const SizedBox(height: 14),
-        AppInput(hint: 'Email', icon: Assets.gmail),
-        const SizedBox(height: 14),
-        AppInput(hint: 'Phone Number', icon: Assets.phone),
-        const SizedBox(height: 30),
-        PrimaryButton(label: 'NEXT', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignupPasswordScreen()))),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Sign Up',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: AppColors.purple,
+            ),
+          ),
+          const Text(
+            'Please add your picture and details.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 28),
+          GestureDetector(
+            onTap: pickProfilePicture,
+            child: CircleAvatar(
+              radius: 42,
+              backgroundColor: const Color(0xFFF1EEF4),
+              backgroundImage: profilePicture.isNotEmpty
+                  ? MemoryImage(base64Decode(profilePicture))
+                  : null,
+              child: profilePicture.isEmpty
+                  ? Image.asset(Assets.user, height: 42)
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tap to add profile picture',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey, fontSize: 11),
+          ),
+          const SizedBox(height: 20),
+          AppInput(
+            hint: 'Full Name',
+            icon: Assets.user,
+            controller: fullNameController,
+          ),
+          const SizedBox(height: 14),
+          AppInput(
+            hint: 'Email',
+            icon: Assets.gmail,
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 14),
+          AppInput(
+            hint: 'Phone Number',
+            icon: Assets.phone,
+            controller: phoneController,
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 30),
+          PrimaryButton(label: 'NEXT', onTap: next),
+        ],
+      ),
     );
   }
 }
 
-class SignupPasswordScreen extends StatelessWidget {
-  const SignupPasswordScreen({super.key});
+class SignupPasswordScreen extends StatefulWidget {
+  final String fullName;
+  final String email;
+  final String phone;
+  final String profilePicture;
+  final String profilePictureName;
+  final String profilePictureType;
+
+  const SignupPasswordScreen({
+    super.key,
+    required this.fullName,
+    required this.email,
+    required this.phone,
+    required this.profilePicture,
+    required this.profilePictureName,
+    required this.profilePictureType,
+  });
+
+  @override
+  State<SignupPasswordScreen> createState() => _SignupPasswordScreenState();
+}
+
+class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+
+  @override
+  void dispose() {
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void continueToPlan() {
+    if (passwordController.text.isEmpty ||
+        confirmPasswordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter and confirm your password.')),
+      );
+      return;
+    }
+
+    if (passwordController.text != confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match.')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SubscriptionScreen(
+          fullName: widget.fullName,
+          email: widget.email,
+          phone: widget.phone,
+          password: passwordController.text,
+          profilePicture: widget.profilePicture,
+          profilePictureName: widget.profilePictureName,
+          profilePictureType: widget.profilePictureType,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return AuthShell(
       compactLogo: true,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Password', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.purple)),
-        const Text('Create a secure password for your account.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
-        const SizedBox(height: 70),
-        AppInput(hint: 'Password', icon: Assets.password, obscure: true),
-        const SizedBox(height: 14),
-        AppInput(hint: 'Confirm Password', icon: Assets.phone, obscure: true),
-        const SizedBox(height: 34),
-        PrimaryButton(label: 'SIGN UP', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SubscriptionScreen()))),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Password',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: AppColors.purple,
+            ),
+          ),
+          const Text(
+            'Create a secure password for your account.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 70),
+          AppInput(
+            hint: 'Password',
+            icon: Assets.password,
+            obscure: true,
+            controller: passwordController,
+          ),
+          const SizedBox(height: 14),
+          AppInput(
+            hint: 'Confirm Password',
+            icon: Assets.password,
+            obscure: true,
+            controller: confirmPasswordController,
+          ),
+          const SizedBox(height: 34),
+          PrimaryButton(label: 'SIGN UP', onTap: continueToPlan),
+        ],
+      ),
     );
   }
 }
 
 class SubscriptionScreen extends StatefulWidget {
-  const SubscriptionScreen({super.key});
+  final String fullName;
+  final String email;
+  final String phone;
+  final String password;
+  final String profilePicture;
+  final String profilePictureName;
+  final String profilePictureType;
+
+  const SubscriptionScreen({
+    super.key,
+    required this.fullName,
+    required this.email,
+    required this.phone,
+    required this.password,
+    required this.profilePicture,
+    required this.profilePictureName,
+    required this.profilePictureType,
+  });
+
   @override
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
-  int selected = 1;
+  int selected = 0;
+  bool loading = false;
+
+  Future<void> register() async {
+    setState(() => loading = true);
+
+    try {
+      final plan = selected == 0 ? 'Free' : 'Premium';
+
+      await AuthService.register(
+        fullName: widget.fullName,
+        email: widget.email,
+        phone: widget.phone,
+        password: widget.password,
+        plan: plan,
+        profilePicture: widget.profilePicture,
+        profilePictureName: widget.profilePictureName,
+        profilePictureType: widget.profilePictureType,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AuthShell(
       compactLogo: true,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Welcome to Resi-Bot', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.purple)),
-        const SizedBox(height: 4),
-        const Text('Don\'t miss out on our offer!', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
-        const SizedBox(height: 22),
-        Container(padding: const EdgeInsets.all(14), decoration: pillDecoration(), child: const Text('Start your journey with Resi-Bot Premium!', textAlign: TextAlign.center, style: TextStyle(color: AppColors.purple, fontWeight: FontWeight.w600))),
-        const SizedBox(height: 24),
-        Row(children: [
-          Expanded(child: PlanCard(title: 'Free', price: '₱0', selected: selected == 0, onTap: () => setState(() => selected = 0), features: ['Manual invoice input', 'Basic tracking', 'Limited analytics'])),
-          const SizedBox(width: 12),
-          Expanded(child: PlanCard(title: 'Premium', price: '₱499', selected: selected == 1, onTap: () => setState(() => selected = 1), features: ['AI receipt scanner', 'Budget warnings', 'Premium analytics'])),
-        ]),
-        const Spacer(),
-        PrimaryButton(label: 'DONE', onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainShell()))),
-        TextButton(onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainShell())), child: const Text('Cancel anytime. No hidden fees', style: TextStyle(color: Colors.grey))),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Welcome to Resi-Bot',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: AppColors.purple,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Don\'t miss out on our offer!',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 22),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: pillDecoration(),
+            child: const Text(
+              'Start your journey with Resi-Bot Premium!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.purple,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: PlanCard(
+                  title: 'Free',
+                  price: '₱0',
+                  selected: selected == 0,
+                  onTap: () => setState(() => selected = 0),
+                  features: const [
+                    'Manual invoice input',
+                    'Basic tracking',
+                    'Limited analytics',
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: PlanCard(
+                  title: 'Premium',
+                  price: '₱499',
+                  selected: selected == 1,
+                  onTap: () => setState(() => selected = 1),
+                  features: const [
+                    'AI receipt scanner',
+                    'Budget warnings',
+                    'Premium analytics',
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          PrimaryButton(
+            label: loading ? 'CREATING ACCOUNT...' : 'DONE',
+            onTap: loading ? () {} : register,
+          ),
+          TextButton(
+            onPressed: loading ? null : register,
+            child: const Text(
+              'Skip for now',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -354,31 +766,133 @@ class AnalyticsScreen extends StatelessWidget {
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool notifications = true;
+
+  ImageProvider? getProfileImage() {
+    final imageBase64 = AppSession.currentUser?.profilePicture ?? '';
+
+    if (imageBase64.isEmpty) return null;
+
+    try {
+      return MemoryImage(base64Decode(imageBase64));
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = AppSession.currentUser;
+
     return PageFrame(
       title: 'Profile',
-      child: SingleChildScrollView(child: Column(children: [
-        CircleAvatar(radius: 52, backgroundColor: Colors.white, child: Image.asset(Assets.user, height: 54)),
-        const SizedBox(height: 12),
-        const Text('John Doe', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        const Text('Edit ✎', style: TextStyle(color: AppColors.muted)),
-        const SizedBox(height: 20),
-        const Align(alignment: Alignment.centerLeft, child: Text('User Information', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
-        ProfileRow(icon: Icons.alternate_email, label: 'Email', value: 'johndoe@gmail.com'),
-        ProfileRow(icon: Icons.phone, label: 'Phone Number', value: '09876543211'),
-        ProfileRow(icon: Icons.workspace_premium, label: 'Subscription', value: 'No Subscription', trailing: Icons.chevron_right),
-        const SizedBox(height: 24),
-        AppCard(child: Row(children: [const Icon(Icons.notifications, color: AppColors.purple), const SizedBox(width: 12), const Text('Notification', style: TextStyle(color: Colors.white)), const Spacer(), Switch(value: notifications, activeColor: AppColors.purple, onChanged: (v) => setState(() => notifications = v))])),
-        const SizedBox(height: 24),
-        PrimaryButton(label: 'LOGOUT', onTap: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false)),
-      ])),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 52,
+              backgroundColor: Colors.white,
+              backgroundImage: getProfileImage(),
+              child: getProfileImage() == null
+                  ? Image.asset(Assets.user, height: 54)
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              user?.fullName ?? 'Guest User',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Text('Edit ✎', style: TextStyle(color: AppColors.muted)),
+            const SizedBox(height: 20),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'User Information',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ProfileRow(
+              icon: Icons.badge,
+              label: 'User ID',
+              value: user?.userId ?? '-',
+            ),
+            ProfileRow(
+              icon: Icons.alternate_email,
+              label: 'Email',
+              value: user?.email ?? '-',
+            ),
+            ProfileRow(
+              icon: Icons.phone,
+              label: 'Phone Number',
+              value: user?.phone ?? '-',
+            ),
+            ProfileRow(
+              icon: Icons.workspace_premium,
+              label: 'Subscription',
+              value: user?.plan ?? 'Free',
+              trailing: Icons.chevron_right,
+            ),
+            const SizedBox(height: 24),
+            AppCard(
+              child: Row(
+                children: [
+                  const Icon(Icons.notifications, color: AppColors.purple),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Notification',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  const Spacer(),
+                  Switch(
+                    value: notifications,
+                    activeColor: AppColors.purple,
+                    onChanged: (v) => setState(() => notifications = v),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            AppCard(
+              child: ProfileRow(
+                icon: Icons.settings,
+                label: 'API Configuration',
+                value: 'n8n Settings',
+                trailing: Icons.chevron_right,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            PrimaryButton(
+              label: 'LOGOUT',
+              onTap: () {
+                AppSession.logout();
+
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (_) => false,
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -486,21 +1000,44 @@ class _BudgetDialogState extends State<BudgetDialog> {
 }
 
 class AppInput extends StatelessWidget {
-  final String hint, icon;
+  final String hint;
+  final String icon;
   final bool obscure;
-  const AppInput({super.key, required this.hint, required this.icon, this.obscure = false});
+  final TextEditingController? controller;
+  final TextInputType? keyboardType;
+
+  const AppInput({
+    super.key,
+    required this.hint,
+    required this.icon,
+    this.obscure = false,
+    this.controller,
+    this.keyboardType,
+  });
+
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
       obscureText: obscure,
+      keyboardType: keyboardType,
       style: const TextStyle(color: Colors.black87),
       decoration: InputDecoration(
         isDense: true,
-        prefixIcon: Padding(padding: const EdgeInsets.all(12), child: Image.asset(icon, height: 18, width: 18)),
+        prefixIcon: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Image.asset(icon, height: 18, width: 18),
+        ),
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey.shade400),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade400)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.purple)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade400),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.purple),
+        ),
       ),
     );
   }
@@ -591,9 +1128,23 @@ class ProfileRow extends StatelessWidget {
   final IconData icon;
   final String label, value;
   final IconData? trailing;
-  const ProfileRow({super.key, required this.icon, required this.label, required this.value, this.trailing});
+  final VoidCallback? onTap;
+  const ProfileRow({super.key, required this.icon, required this.label, required this.value, this.trailing, this.onTap});
   @override
-  Widget build(BuildContext context) => Padding(padding: const EdgeInsets.symmetric(vertical: 9), child: Row(children: [Icon(icon, color: AppColors.purple), const SizedBox(width: 14), Text(label, style: const TextStyle(color: Colors.white70)), const Spacer(), Text(value, style: const TextStyle(color: Colors.white, fontSize: 12)), if (trailing != null) Icon(trailing, color: AppColors.purple)]));
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 9),
+    child: InkWell(
+      onTap: onTap,
+      child: Row(children: [
+        Icon(icon, color: AppColors.purple), 
+        const SizedBox(width: 14), 
+        Text(label, style: const TextStyle(color: Colors.white70)), 
+        const Spacer(), 
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 12)), 
+        if (trailing != null) Icon(trailing, color: AppColors.purple)
+      ]),
+    ),
+  );
 }
 
 class DetailLine extends StatelessWidget {
