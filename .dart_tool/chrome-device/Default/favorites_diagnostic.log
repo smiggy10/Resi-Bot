@@ -77,3 +77,33 @@
 2026-05-04 17:25:45.874: [INFO] BookmarkModelLoaded, ids_reassigned: 0
 2026-05-04 17:25:45.874: [INFO] OnDoneLoading sync enabled: 0
 2026-05-04 17:25:45.876: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-05-04 17:38:15.060: [INFO] VisibilityChanged: 0
+2026-05-04 17:38:15.135: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 17:38:15.136: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 17:38:15.136: [INFO] BookmarkModelLoaded, ids_reassigned: 0
+2026-05-04 17:38:15.136: [INFO] OnDoneLoading sync enabled: 0
+2026-05-04 17:38:15.138: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-05-04 18:00:00.718: [INFO] VisibilityChanged: 0
+2026-05-04 18:00:00.815: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 18:00:00.816: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 18:00:00.816: [INFO] BookmarkModelLoaded, ids_reassigned: 0
+2026-05-04 18:00:00.816: [INFO] OnDoneLoading sync enabled: 0
+2026-05-04 18:00:00.819: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-05-04 18:02:09.421: [INFO] VisibilityChanged: 0
+2026-05-04 18:02:09.490: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 18:02:09.491: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 18:02:09.491: [INFO] BookmarkModelLoaded, ids_reassigned: 0
+2026-05-04 18:02:09.491: [INFO] OnDoneLoading sync enabled: 0
+2026-05-04 18:02:09.494: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-05-04 18:05:43.355: [INFO] VisibilityChanged: 0
+2026-05-04 18:05:43.423: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 18:05:43.423: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 18:05:43.423: [INFO] BookmarkModelLoaded, ids_reassigned: 0
+2026-05-04 18:05:43.423: [INFO] OnDoneLoading sync enabled: 0
+2026-05-04 18:05:43.426: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-05-04 18:11:23.832: [INFO] VisibilityChanged: 0
+2026-05-04 18:11:23.901: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 18:11:23.902: [INFO] BookmarkNodeAdded, ABU: 0
+2026-05-04 18:11:23.902: [INFO] BookmarkModelLoaded, ids_reassigned: 0
+2026-05-04 18:11:23.902: [INFO] OnDoneLoading sync enabled: 0
+2026-05-04 18:11:23.905: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
