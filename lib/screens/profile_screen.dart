@@ -1,7 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../main.dart'; // For AppColors, Assets, PageFrame, AppCard, ProfileRow, PrimaryButton
+import '../main.dart'; // For AppColors, PageFrame, AppCard, ProfileRow, PrimaryButton
 import 'settings_screen.dart';
 import 'login_screen.dart';
 
@@ -15,18 +14,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool notifications = true;
 
-  ImageProvider? getProfileImage() {
-    final imageBase64 = AppSession.currentUser?.profilePicture ?? '';
-
-    if (imageBase64.isEmpty) return null;
-
-    try {
-      return MemoryImage(base64Decode(imageBase64));
-    } catch (_) {
-      return null;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = AppSession.currentUser;
@@ -39,10 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             CircleAvatar(
               radius: 52,
               backgroundColor: Colors.white,
-              backgroundImage: getProfileImage(),
-              child: getProfileImage() == null
-                  ? Image.asset(Assets.user, height: 54)
-                  : null,
+              child: const Icon(Icons.person, size: 54, color: AppColors.muted),
             ),
             const SizedBox(height: 12),
             Text(
@@ -53,7 +37,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const Text('Edit ✎', style: TextStyle(color: AppColors.muted)),
             const SizedBox(height: 20),
             const Align(
               alignment: Alignment.centerLeft,

@@ -1,8 +1,52 @@
 {
-   "checksum": "4ef869b6900738c3bedd0f159ae99114",
+   "checksum": "c9b782edd822d1a5c4a9ae49f0504bc3",
    "roots": {
       "bookmark_bar": {
          "children": [ {
+            "date_added": "13422393237322094",
+            "date_last_used": "0",
+            "guid": "423536df-6df2-4b37-abb9-2339077a874c",
+            "id": "48",
+            "name": "Agoda",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://s3.amazonaws.com/amundsen/redirect/19q2/agoda.html?utm_source=win32&utm_medium=favorite",
+            "visit_count": 0
+         }, {
+            "date_added": "13422393237320013",
+            "date_last_used": "0",
+            "guid": "b9b343c3-6637-43df-b46c-3f9cef7c7fc2",
+            "id": "47",
+            "name": "Amazon",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://s3.amazonaws.com/amundsen/redirect/19q2/amazon.html?utm_source=win32&utm_medium=favorite",
+            "visit_count": 0
+         }, {
+            "date_added": "13422392699744487",
+            "date_last_used": "0",
+            "guid": "cb3d17c3-b077-4722-a44a-eaff526aa332",
+            "id": "44",
+            "name": "Agoda",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://s3.amazonaws.com/amundsen/redirect/19q2/agoda.html?utm_source=win32&utm_medium=favorite",
+            "visit_count": 0
+         }, {
+            "date_added": "13422392699741592",
+            "date_last_used": "0",
+            "guid": "170eab36-9a5c-4783-bc64-f50386b9ad05",
+            "id": "43",
+            "name": "Amazon",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://s3.amazonaws.com/amundsen/redirect/19q2/amazon.html?utm_source=win32&utm_medium=favorite",
+            "visit_count": 0
+         }, {
             "date_added": "13422391883902359",
             "date_last_used": "0",
             "guid": "f0732675-3264-433b-85da-af94a95017b8",
@@ -203,7 +247,7 @@
          } ],
          "date_added": "13422388797051340",
          "date_last_used": "0",
-         "date_modified": "13422391883902359",
+         "date_modified": "13422393237322094",
          "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
          "id": "1",
          "name": "Favorites bar",
