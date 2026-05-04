@@ -1,8 +1,30 @@
 {
-   "checksum": "1170df93520295228988a032271998ef",
+   "checksum": "6c67677a604296356060bae8de3807fb",
    "roots": {
       "bookmark_bar": {
          "children": [ {
+            "date_added": "13422389145874243",
+            "date_last_used": "0",
+            "guid": "9e831846-73a5-439e-b4b9-9c72786049c5",
+            "id": "16",
+            "name": "Agoda",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://s3.amazonaws.com/amundsen/redirect/19q2/agoda.html?utm_source=win32&utm_medium=favorite",
+            "visit_count": 0
+         }, {
+            "date_added": "13422389145873238",
+            "date_last_used": "0",
+            "guid": "4a4b0d0a-6124-4f5b-9ab3-ab96d7910f95",
+            "id": "15",
+            "name": "Amazon",
+            "show_icon": false,
+            "source": "oem_preload",
+            "type": "url",
+            "url": "https://s3.amazonaws.com/amundsen/redirect/19q2/amazon.html?utm_source=win32&utm_medium=favorite",
+            "visit_count": 0
+         }, {
             "date_added": "13422388957614883",
             "date_last_used": "0",
             "guid": "543cdfe3-4735-4c3b-9285-47e93e4deeac",
@@ -49,7 +71,7 @@
          } ],
          "date_added": "13422388797051340",
          "date_last_used": "0",
-         "date_modified": "13422388957614883",
+         "date_modified": "13422389145874243",
          "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
          "id": "1",
          "name": "Favorites bar",
