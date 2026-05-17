@@ -582,17 +582,19 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      PrimaryButton(
-                        label: isProcessing
-                            ? 'PROCESSING...'
-                            : hasError
-                                ? 'RETRY'
-                                : 'DONE',
-                        onTap: isProcessing
-                            ? () {}
-                            : hasError
-                                ? _retryProcessing
-                                : () => Navigator.pop(context),
+                      Center(
+                        child: PrimaryButton(
+                          label: isProcessing
+                              ? 'PROCESSING...'
+                              : hasError
+                                  ? 'RETRY'
+                                  : 'DONE',
+                          onTap: isProcessing
+                              ? () {}
+                              : hasError
+                                  ? _retryProcessing
+                                  : () => Navigator.pop(context),
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Center(
@@ -628,21 +630,30 @@ class _ResultLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: AppColors.muted),
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 14,
+              ),
+            ),
           ),
-          const Spacer(),
-          Flexible(
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
             child: Text(
               value,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
           ),

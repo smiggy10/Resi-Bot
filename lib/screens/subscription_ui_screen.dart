@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 import '../main.dart'; // For AppColors, Assets, PrimaryButton, AuthShell, PlanCard, pillDecoration
-import 'main_shell.dart';
 
-class SubscriptionScreen extends StatefulWidget {
+class SubscriptionUIScreen extends StatefulWidget {
   final String fullName;
   final String email;
   final String phone;
@@ -12,7 +10,7 @@ class SubscriptionScreen extends StatefulWidget {
   final String profilePictureName;
   final String profilePictureType;
 
-  const SubscriptionScreen({
+  const SubscriptionUIScreen({
     super.key,
     required this.fullName,
     required this.email,
@@ -24,44 +22,12 @@ class SubscriptionScreen extends StatefulWidget {
   });
 
   @override
-  State<SubscriptionScreen> createState() => _SubscriptionScreenState();
+  State<SubscriptionUIScreen> createState() => _SubscriptionUIScreenState();
 }
 
-class _SubscriptionScreenState extends State<SubscriptionScreen> {
+class _SubscriptionUIScreenState extends State<SubscriptionUIScreen> {
   int selected = 0;
   bool loading = false;
-
-  Future<void> register() async {
-    setState(() => loading = true);
-
-    try {
-      final plan = selected == 0 ? 'Free' : 'Premium';
-
-      await AuthService.register(
-        fullName: widget.fullName,
-        email: widget.email,
-        phone: widget.phone,
-        password: widget.password,
-        plan: plan,
-        profilePicture: widget.profilePicture,
-        profilePictureName: widget.profilePictureName,
-        profilePictureType: widget.profilePictureType,
-      );
-
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainShell()),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,16 +99,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           const Spacer(),
           PrimaryButton(
             label: loading ? 'ACTIVATING SUBSCRIPTION...' : 'DONE',
-            onTap: loading ? () {} : register,
+            onTap: loading
+                ? () {}
+                : () {
+                    Navigator.pop(context);
+                  },
           ),
           TextButton(
             onPressed: loading
                 ? null
                 : () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MainShell()),
-                    );
+                    Navigator.pop(context);
                   },
             child: const Text(
               'Skip for now',
