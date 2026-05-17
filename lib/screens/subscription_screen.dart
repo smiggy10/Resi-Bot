@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../main.dart';
-import 'main_shell.dart';
+import 'login_screen.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   final String fullName;
@@ -62,7 +62,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const MainShell()),
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     } catch (e) {
       if (!mounted) return;
@@ -115,7 +115,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
             ),
             const SizedBox(height: 18),
-
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: pillDecoration(),
@@ -142,9 +141,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 22),
-
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -188,9 +185,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 14),
-
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -222,9 +217,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 22),
-
             PrimaryButton(
               label: loading
                   ? loadingLabel
@@ -233,9 +226,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       : 'CONTINUE WITH FREE',
               onTap: loading ? () {} : () => registerWithPlan(selectedPlan),
             ),
-
             const SizedBox(height: 8),
-
             OutlinedButton(
               onPressed: loading ? null : () => registerWithPlan('Free Trial'),
               style: OutlinedButton.styleFrom(
@@ -253,7 +244,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
               ),
             ),
-
             TextButton(
               onPressed: loading ? null : () => registerWithPlan('Free'),
               child: const Text(
@@ -261,7 +251,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 style: TextStyle(color: Colors.grey),
               ),
             ),
-
             const SizedBox(height: 20),
           ],
         ),
@@ -352,7 +341,6 @@ class _SubscriptionPlanCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
             ],
-
             Text(
               title,
               style: const TextStyle(
@@ -361,9 +349,7 @@ class _SubscriptionPlanCard extends StatelessWidget {
                 fontWeight: FontWeight.w900,
               ),
             ),
-
             const SizedBox(height: 2),
-
             Text(
               subtitle,
               style: const TextStyle(
@@ -371,9 +357,7 @@ class _SubscriptionPlanCard extends StatelessWidget {
                 fontSize: 11,
               ),
             ),
-
             const SizedBox(height: 10),
-
             if (oldPrice.isNotEmpty)
               Text(
                 oldPrice,
@@ -384,7 +368,6 @@ class _SubscriptionPlanCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -411,12 +394,10 @@ class _SubscriptionPlanCard extends StatelessWidget {
                 ),
               ],
             ),
-
             const Divider(
               color: Color(0xFFE0D8E5),
               height: 18,
             ),
-
             ...features.map(
               (feature) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -425,9 +406,8 @@ class _SubscriptionPlanCard extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.check_circle,
-                      color: selected
-                          ? AppColors.purple
-                          : const Color(0xFFA6A0AD),
+                      color:
+                          selected ? AppColors.purple : const Color(0xFFA6A0AD),
                       size: 14,
                     ),
                     const SizedBox(width: 7),
