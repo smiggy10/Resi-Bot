@@ -1,5 +1,9 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+
 import '../main.dart'; // For AppColors, Assets, NavItem
+import '../services/budget_service.dart';
 import 'home_screen.dart';
 import 'invoices_screen.dart';
 import 'analytics_screen.dart';
@@ -15,21 +19,32 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int index = 0;
+  int homeRefreshKey = 0;
 
-  late final pages = [
-    HomeScreen(openBudget: showBudgetDialog),
-    const InvoicesScreen(),
-    const AnalyticsScreen(),
-    const ProfileScreen(),
-  ];
-
-  void showBudgetDialog() {
-    showDialog(
+  Future<void> showBudgetDialog() async {
+    final saved = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withOpacity(.72),
       builder: (_) => const BudgetDialog(),
     );
+
+    if (saved == true && mounted) {
+      setState(() {
+        homeRefreshKey++;
+        index = 0;
+      });
+    }
   }
+
+  List<Widget> get pages => [
+        HomeScreen(
+          key: ValueKey('home-$homeRefreshKey'),
+          openBudget: showBudgetDialog,
+        ),
+        const InvoicesScreen(),
+        const AnalyticsScreen(),
+        const ProfileScreen(),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -40,25 +55,15 @@ class _MainShellState extends State<MainShell> {
           children: pages,
         ),
       ),
-
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
       floatingActionButton: FloatingActionButton.large(
         backgroundColor: AppColors.purple,
         shape: const CircleBorder(
-          side: BorderSide(
-            color: Colors.white,
-            width: 4,
-          ),
+          side: BorderSide(color: Colors.white, width: 4),
         ),
         onPressed: () => ReceiptScanFlow.start(context),
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-          size: 36,
-        ),
+        child: const Icon(Icons.add, color: Colors.white, size: 36),
       ),
-
       bottomNavigationBar: BottomAppBar(
         height: 76,
         padding: EdgeInsets.zero,
@@ -108,7 +113,81 @@ class BudgetDialog extends StatefulWidget {
 }
 
 class _BudgetDialogState extends State<BudgetDialog> {
-  int preset = 1;
+  final TextEditingController budgetController = TextEditingController();
+  bool isSaving = false;
+
+  @override
+  void dispose() {
+    budgetController.dispose();
+    super.dispose();
+  }
+
+  DateTime get startDate => DateTime.now();
+
+  DateTime get endDate => _addOneMonth(startDate);
+
+  DateTime _addOneMonth(DateTime date) {
+    final nextMonth = date.month == 12 ? 1 : date.month + 1;
+    final nextYear = date.month == 12 ? date.year + 1 : date.year;
+    final lastDayOfNextMonth = DateTime(nextYear, nextMonth + 1, 0).day;
+    final safeDay = min(date.day, lastDayOfNextMonth);
+
+    return DateTime(nextYear, nextMonth, safeDay);
+  }
+
+  String _formatDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
+  double _parseBudgetInput() {
+    final cleaned = budgetController.text
+        .replaceAll('₱', '')
+        .replaceAll(',', '')
+        .trim();
+
+    return double.tryParse(cleaned) ?? 0;
+  }
+
+  Future<void> _saveBudget() async {
+    final budgetLimit = _parseBudgetInput();
+
+    if (budgetLimit <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid budget amount.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => isSaving = true);
+
+    try {
+      await BudgetService.setMonthlyBudget(budgetLimit: budgetLimit);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Budget saved successfully.'),
+        ),
+      );
+
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => isSaving = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save budget: $e'),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,150 +197,122 @@ class _BudgetDialogState extends State<BudgetDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Set Budget Limit',
-                  style: TextStyle(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Set Budget Limit',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                  ),
+                ],
+              ),
+              const Text(
+                'Enter your monthly budget limit. The budget period will automatically start today and end one month later.',
+                style: TextStyle(color: AppColors.muted),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Monthly Budget Limit',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: budgetController,
+                enabled: !isSaving,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: InputDecoration(
+                  prefixText: '₱ ',
+                  prefixStyle: const TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.white70,
-                  ),
-                ),
-              ],
-            ),
-
-            const Text(
-              'Set your monthly budget limit to track and manage your spending.',
-              style: TextStyle(color: AppColors.muted),
-            ),
-
-            const SizedBox(height: 20),
-
-            const Text(
-              'Monthly Budget Limit',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            const Text(
-              '₱ 2,500',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const Divider(color: AppColors.purple),
-
-            Row(
-              children: List.generate(4, (i) {
-                final values = [
-                  '₱1,000',
-                  '₱2,500',
-                  '₱5,000',
-                  '₱10,000',
-                ];
-
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: ChoiceChip(
-                      label: Text(
-                        values[i],
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                      selected: preset == i,
-                      selectedColor: AppColors.purple,
-                      onSelected: (_) => setState(() => preset = i),
-                    ),
-                  ),
-                );
-              }),
-            ),
-
-            const SizedBox(height: 18),
-
-            AppCard(
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.calendar_month,
-                    color: AppColors.purple,
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Budget Period\nMonthly',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  Icon(
-                    Icons.keyboard_arrow_down,
+                  hintText: 'Enter amount',
+                  hintStyle: const TextStyle(
                     color: AppColors.muted,
+                    fontSize: 18,
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            AppCard(
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.refresh,
-                    color: AppColors.purple,
+                  enabledBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.purple),
                   ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Your budget will reset automatically every month.',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.lightPurple),
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            PrimaryButton(
-              label: 'Save Budget',
-              onTap: () => Navigator.pop(context),
-            ),
-
-            const SizedBox(height: 8),
-
-            Center(
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: AppColors.muted),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 18),
+              AppCard(
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_month, color: AppColors.purple),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Budget Period\nMonthly • ${_formatDate(startDate)} to ${_formatDate(endDate)}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              AppCard(
+                child: const Row(
+                  children: [
+                    Icon(Icons.refresh, color: AppColors.purple),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Your budget will reset automatically one month after the date it was set.',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              PrimaryButton(
+                label: isSaving ? 'Saving...' : 'Save Budget',
+                onTap: isSaving ? () {} : _saveBudget,
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: AppColors.muted),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

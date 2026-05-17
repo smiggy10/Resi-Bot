@@ -1,169 +1,376 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import '../main.dart'; // For AppColors, DemoData, PageFrame, AppCard, CategoryBar, InvoiceTable
+import 'package:http/http.dart' as http;
 
-// -----------------------------------------------------------------------------
-// Placeholder / mock controls (UI-only; no API). Real data flow remains intact.
-// -----------------------------------------------------------------------------
-
-/// When `true`, Analytics uses local mock data so the UI is testable without any
-/// backend integration. When `false`, it uses `DemoData` but still applies safe
-/// placeholder fallbacks.
-const bool kAnalyticsUseLocalMockDataOnly = true;
-
-// --- Placeholder rules --------------------------------------------------------
-
-bool _isMissingOrPlaceholderString(String value) {
-  final t = value.trim();
-  if (t.isEmpty) return true;
-  if (t == '—' || t == '-' || t == '–') return true;
-  if (t.toLowerCase() == 'n/a' || t.toLowerCase() == 'null') return true;
-  return false;
-}
-
-String _labelOrDash(String value) => _isMissingOrPlaceholderString(value) ? '—' : value.trim();
-
-double _finiteOrZero(num? value) {
-  if (value == null) return 0;
-  final d = value.toDouble();
-  if (d.isNaN || !d.isFinite) return 0;
-  return d;
-}
-
-String _currencyOrZero(String? value) {
-  final t = (value ?? '').trim();
-  if (_isMissingOrPlaceholderString(t)) return '₱0.00';
-  if (t == '0' || t == '₱0' || t == '₱0.0' || t == '₱0.00') return '₱0.00';
-  return t;
-}
-
-String _currencyFromAmount(double amount) {
-  final safe = _finiteOrZero(amount);
-  return '₱${safe.toStringAsFixed(2)}';
-}
-
-double _safePercent(double numerator, double denominator) {
-  final n = _finiteOrZero(numerator);
-  final d = _finiteOrZero(denominator);
-  if (d <= 0) return 0;
-  final v = n / d;
-  if (v.isNaN || !v.isFinite) return 0;
-  return v.clamp(0, 1);
-}
-
-// --- Mock datasets ------------------------------------------------------------
+import '../config/app_config.dart';
+import '../main.dart';
+import '../services/auth_service.dart';
+import '../services/app_refresh_service.dart';
 
 class _CategorySpendRow {
   final String label;
   final double amount;
-  const _CategorySpendRow(this.label, this.amount);
+  final String amountText;
+
+  const _CategorySpendRow({
+    required this.label,
+    required this.amount,
+    required this.amountText,
+  });
 }
 
-const List<String> _monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-
-final List<double> _mockMonthlySpend = <double>[0, 0, 0, 0, 0, 0];
-
-final List<_CategorySpendRow> _mockCategorySpend = <_CategorySpendRow>[
-  const _CategorySpendRow('—', 0),
-  const _CategorySpendRow('—', 0),
-  const _CategorySpendRow('—', 0),
-  const _CategorySpendRow('—', 0),
-];
-
-final List<Invoice> _mockTopVendors = <Invoice>[
-  Invoice('—', '—', '₱0.00', '—', '—'),
-  Invoice('—', '—', '₱0.00', '—', '—'),
-  Invoice('—', '—', '₱0.00', '—', '—'),
-  Invoice('—', '—', '₱0.00', '—', '—'),
-];
-
-Invoice _normalizeInvoiceRow(Invoice invoice) {
-  return Invoice(
-    _labelOrDash(invoice.vendor),
-    _labelOrDash(invoice.category),
-    _currencyOrZero(invoice.amount),
-    _labelOrDash(invoice.date),
-    _labelOrDash(invoice.time),
-  );
-}
-
-List<Invoice> _normalizeInvoices(Iterable<Invoice> rows) => rows.map(_normalizeInvoiceRow).toList();
-
-List<double> _normalizeMonthlyValues(List<double>? raw) {
-  final src = raw ?? const <double>[];
-  final out = List<double>.filled(_monthLabels.length, 0);
-  for (var i = 0; i < out.length && i < src.length; i++) {
-    out[i] = _finiteOrZero(src[i]);
-  }
-  return out;
-}
-
-class AnalyticsScreen extends StatelessWidget {
+class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
 
-  List<double> get _monthlySpendValues {
-    // No backend yet; keep it UI-only.
-    if (kAnalyticsUseLocalMockDataOnly) return _normalizeMonthlyValues(_mockMonthlySpend);
-    return _normalizeMonthlyValues(const <double>[]); // safe fallback (0s) if backend not wired
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+
+  List<String> _monthLabels = const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+  List<double> _monthlySpend = const [0, 0, 0, 0, 0, 0];
+  List<_CategorySpendRow> _categorySpend = const [];
+  List<Invoice> _topVendors = const [];
+
+  late final VoidCallback _refreshListener;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _refreshListener = () {
+      if (mounted) {
+        _loadAnalytics();
+      }
+    };
+
+    AppRefreshService.refreshTick.addListener(_refreshListener);
+
+    _loadAnalytics();
   }
 
-  List<_CategorySpendRow> get _categorySpendRows {
-    if (kAnalyticsUseLocalMockDataOnly) return _mockCategorySpend;
-    return _mockCategorySpend; // safe placeholder until backend wiring
+  @override
+  void dispose() {
+    AppRefreshService.refreshTick.removeListener(_refreshListener);
+    super.dispose();
   }
 
-  List<Invoice> get _topVendorInvoices {
-    if (kAnalyticsUseLocalMockDataOnly) return _normalizeInvoices(_mockTopVendors);
-    final safe = _normalizeInvoices(DemoData.invoices.take(4));
-    return safe.isEmpty ? _normalizeInvoices(_mockTopVendors) : safe;
+  double _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+
+    final cleaned = value
+        ?.toString()
+        .replaceAll('₱', '')
+        .replaceAll(',', '')
+        .trim();
+
+    return double.tryParse(cleaned ?? '') ?? 0;
+  }
+
+  String _currency(double amount) => '₱${amount.toStringAsFixed(2)}';
+
+  String _capitalizeFirst(String value) {
+    final text = value.trim();
+
+    if (text.isEmpty || text == '-' || text == '—') {
+      return '—';
+    }
+
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
+  Future<void> _loadAnalytics() async {
+    try {
+      final user = AppSession.currentUser;
+
+      if (user == null || user.userId.isEmpty) {
+        throw Exception('No logged-in user found.');
+      }
+
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+        _errorMessage = '';
+      });
+
+      final response = await http
+          .post(
+            Uri.parse(AppConfig.analyticsUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'userId': user.userId,
+              'year': DateTime.now().year,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
+
+      Map<String, dynamic> data = {};
+
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        throw Exception(
+          'Invalid response from n8n. Status: ${response.statusCode}. Body: ${response.body}',
+        );
+      }
+
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300 ||
+          data['success'] != true) {
+        throw Exception(data['message'] ?? 'Failed to load analytics.');
+      }
+
+      final analytics = data['analytics'];
+
+      if (analytics is! Map) {
+        throw Exception('Analytics data was not found in response.');
+      }
+
+      final labels = <String>[];
+      final labelRaw = analytics['monthLabels'];
+
+      if (labelRaw is List) {
+        labels.addAll(labelRaw.map((e) => e.toString()));
+      }
+
+      final monthly = <double>[];
+      final monthlyRaw = analytics['monthlySpending'];
+
+      if (monthlyRaw is List) {
+        monthly.addAll(monthlyRaw.map(_asDouble));
+      }
+
+      final categories = <_CategorySpendRow>[];
+      final categoryRaw = analytics['categorySpending'];
+
+      if (categoryRaw is List) {
+        for (final item in categoryRaw) {
+          if (item is Map) {
+            final amount = _asDouble(item['amount']);
+
+            categories.add(
+              _CategorySpendRow(
+                label: item['category']?.toString() ?? 'Other',
+                amount: amount,
+                amountText: item['amountText']?.toString() ?? _currency(amount),
+              ),
+            );
+          }
+        }
+      }
+
+      final vendors = <Invoice>[];
+      final vendorRaw = analytics['topVendors'];
+
+      if (vendorRaw is List) {
+        for (final item in vendorRaw) {
+          if (item is Map) {
+            final vendorName = _capitalizeFirst(
+              item['vendor']?.toString() ??
+                  item['store']?.toString() ??
+                  '—',
+            );
+
+            vendors.add(
+              Invoice(
+                vendorName,
+                item['category']?.toString() ??
+                    '${item['invoiceCount'] ?? 0} invoices',
+                item['amountText']?.toString() ?? '₱0.00',
+                '—',
+                '—',
+              ),
+            );
+          }
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _monthLabels = labels.isEmpty
+            ? const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+            : labels;
+        _monthlySpend = monthly.isEmpty
+            ? const [0, 0, 0, 0, 0, 0]
+            : monthly;
+        _categorySpend = categories;
+        _topVendors = vendors;
+        _isLoading = false;
+        _hasError = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _monthLabels = const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+        _monthlySpend = const [0, 0, 0, 0, 0, 0];
+        _categorySpend = const [];
+        _topVendors = const [];
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  double _safePercent(double numerator, double denominator) {
+    if (denominator <= 0) return 0;
+
+    final value = numerator / denominator;
+
+    if (value.isNaN || !value.isFinite) return 0;
+
+    return value.clamp(0, 1);
   }
 
   @override
   Widget build(BuildContext context) {
-    final monthly = _monthlySpendValues;
-    final categoryRows = _categorySpendRows;
-    final categoryTotal = categoryRows.fold<double>(0, (sum, r) => sum + _finiteOrZero(r.amount));
+    final categoryTotal = _categorySpend.fold<double>(
+      0,
+      (sum, item) => sum + item.amount,
+    );
 
     return PageFrame(
       title: 'Analytics',
-      child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Spending Over Time (Jan - June)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-        AppCard(
-          child: SizedBox(
-            height: 190,
-            child: CustomPaint(
-              painter: _AnalyticsLineChartPainter(values: monthly, labels: _monthLabels),
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        const Text('Spending by Category', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-        AppCard(
+      child: RefreshIndicator(
+        onRefresh: _loadAnalytics,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
-            children: categoryRows.isEmpty
-                ? [
-                    CategoryBar('—', '₱0.00', 0),
-                    CategoryBar('—', '₱0.00', 0),
-                    CategoryBar('—', '₱0.00', 0),
-                    CategoryBar('—', '₱0.00', 0),
-                  ]
-                : categoryRows
-                    .map(
-                      (r) => CategoryBar(
-                        _labelOrDash(r.label),
-                        _currencyFromAmount(r.amount),
-                        _safePercent(r.amount, categoryTotal),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: LinearProgressIndicator(
+                    color: AppColors.purple,
+                    backgroundColor: Color(0xFF4A4554),
+                  ),
+                ),
+
+              if (_hasError)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Unable to load analytics',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _errorMessage,
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _loadAnalytics,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.lightPurple,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              const Text(
+                'Spending Over Time (Jan - June)',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              AppCard(
+                child: SizedBox(
+                  height: 190,
+                  child: CustomPaint(
+                    painter: _AnalyticsLineChartPainter(
+                      values: _monthlySpend,
+                      labels: _monthLabels,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              const Text(
+                'Spending by Category',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              AppCard(
+                child: Column(
+                  children: _categorySpend.isEmpty
+                      ? [
+                          CategoryBar('—', '₱0.00', 0),
+                          CategoryBar('—', '₱0.00', 0),
+                          CategoryBar('—', '₱0.00', 0),
+                          CategoryBar('—', '₱0.00', 0),
+                        ]
+                      : _categorySpend
+                          .map(
+                            (row) => CategoryBar(
+                              row.label,
+                              row.amountText,
+                              _safePercent(row.amount, categoryTotal),
+                            ),
+                          )
+                          .toList(),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              const Text(
+                'Top Vendors by Total Spend',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              _topVendors.isEmpty
+                  ? AppCard(
+                      child: const Text(
+                        'No vendor spending data yet.',
+                        style: TextStyle(color: AppColors.muted),
                       ),
                     )
-                    .toList(),
+                  : InvoiceTable(
+                      invoices: _topVendors,
+                      compact: true,
+                    ),
+            ],
           ),
         ),
-        const SizedBox(height: 18),
-        const Text('Top Vendors by Total Spend', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-        InvoiceTable(invoices: _topVendorInvoices, compact: true),
-      ])),
+      ),
     );
   }
 }
@@ -172,42 +379,60 @@ class _AnalyticsLineChartPainter extends CustomPainter {
   final List<double> values;
   final List<String> labels;
 
-  const _AnalyticsLineChartPainter({required this.values, required this.labels});
+  const _AnalyticsLineChartPainter({
+    required this.values,
+    required this.labels,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final grid = Paint()
       ..color = Colors.white.withOpacity(.10)
       ..strokeWidth = 1;
+
     for (var i = 0; i < 5; i++) {
       final y = size.height * i / 4;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
     }
 
-    final safe = values.isEmpty ? List<double>.filled(labels.length, 0) : values;
-    final clipped = List<double>.filled(labels.length, 0);
+    final safeLabels = labels.isEmpty
+        ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+        : labels;
+
+    final clipped = List<double>.filled(safeLabels.length, 0);
+
     for (var i = 0; i < clipped.length; i++) {
-      final v = i < safe.length ? safe[i] : 0;
-      clipped[i] = _finiteOrZero(v);
+      clipped[i] = i < values.length ? values[i] : 0;
     }
 
-    final maxV = clipped.fold<double>(0, (m, v) => v > m ? v : m);
+    final maxV = clipped.fold<double>(
+      0,
+      (max, value) => value > max ? value : max,
+    );
+
     final denom = maxV <= 0 ? 1.0 : maxV;
     final chartBottom = size.height * .85;
     final chartTop = size.height * .12;
     final chartSpan = (chartBottom - chartTop).abs();
 
     final points = <Offset>[];
+
     for (var i = 0; i < clipped.length; i++) {
-      final x = size.width * (clipped.length == 1 ? 0 : i / (clipped.length - 1));
-      final pct = (clipped[i] / denom).clamp(0, 1);
-      final y = chartBottom - (pct * chartSpan);
+      final x = size.width *
+          (clipped.length == 1 ? 0 : i / (clipped.length - 1));
+
+      final percent = (clipped[i] / denom).clamp(0.0, 1.0);
+      final y = chartBottom - (percent * chartSpan);
+
       points.add(Offset(x, y));
     }
 
+    if (points.isEmpty) return;
+
     final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final p in points.skip(1)) {
-      path.lineTo(p.dx, p.dy);
+
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
     }
 
     final fill = Path.from(path)
@@ -219,10 +444,16 @@ class _AnalyticsLineChartPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [AppColors.purple.withOpacity(.75), AppColors.purple.withOpacity(.05)],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+        colors: [
+          AppColors.purple.withOpacity(.75),
+          AppColors.purple.withOpacity(.05),
+        ],
+      ).createShader(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+      );
 
     canvas.drawPath(fill, fillPaint);
+
     canvas.drawPath(
       path,
       Paint()
@@ -230,15 +461,32 @@ class _AnalyticsLineChartPainter extends CustomPainter {
         ..strokeWidth = 3
         ..style = PaintingStyle.stroke,
     );
-    for (final p in points) {
-      canvas.drawCircle(p, 4, Paint()..color = AppColors.lightPurple);
+
+    for (final point in points) {
+      canvas.drawCircle(point, 4, Paint()..color = AppColors.lightPurple);
     }
 
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    for (var i = 0; i < labels.length; i++) {
-      textPainter.text = TextSpan(text: labels[i], style: const TextStyle(color: AppColors.muted, fontSize: 10));
+
+    for (var i = 0; i < safeLabels.length; i++) {
+      textPainter.text = TextSpan(
+        text: safeLabels[i],
+        style: const TextStyle(
+          color: AppColors.muted,
+          fontSize: 10,
+        ),
+      );
+
       textPainter.layout();
-      textPainter.paint(canvas, Offset(size.width * i / (labels.length - 1) - 8, size.height - 2));
+
+      final x = safeLabels.length == 1
+          ? 0
+          : size.width * i / (safeLabels.length - 1);
+
+      textPainter.paint(
+        canvas,
+        Offset(x - 8, size.height - 2),
+      );
     }
   }
 

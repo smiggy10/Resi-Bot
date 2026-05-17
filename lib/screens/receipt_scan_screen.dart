@@ -1,3 +1,4 @@
+import '../services/app_refresh_service.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -402,6 +403,8 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
             ? receipt['date'].toString()
             : 'Not detected';
       });
+
+      AppRefreshService.refreshAll();
     } catch (e) {
       if (!mounted) return;
 

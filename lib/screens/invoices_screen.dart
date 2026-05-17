@@ -1,119 +1,69 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import '../main.dart'; // AppColors, DemoData, PageFrame, FilterChipLite, InvoiceTable, Invoice
+import 'package:http/http.dart' as http;
 
-// -----------------------------------------------------------------------------
-// Placeholder / mock controls (UI-only; no API). Real data flow uses `DemoData`.
-// -----------------------------------------------------------------------------
+import '../config/app_config.dart';
+import '../main.dart';
+import '../services/auth_service.dart';
+import '../services/app_refresh_service.dart';
+import 'invoice_details_screen.dart';
 
-/// When `true`, the table uses only [_localMockInvoices] so the screen is testable
-/// without reading `DemoData`. When `false`, `DemoData.invoices` is the source.
-const bool kInvoicesUseLocalMockDataOnly = true;
+class _InvoiceItem {
+  final String recordId;
+  final String vendor;
+  final String category;
+  final String amountText;
+  final String date;
+  final String time;
+  final String receiptImageUrl;
 
-/// If the date filter yields zero rows, show dash placeholder rows instead of a
-/// totally empty table body (stable layout; no crash).
-const bool kInvoicesShowDashRowsWhenFilteredEmpty = true;
+  const _InvoiceItem({
+    required this.recordId,
+    required this.vendor,
+    required this.category,
+    required this.amountText,
+    required this.date,
+    required this.time,
+    required this.receiptImageUrl,
+  });
 
-/// Sample rows for UI tests and for [kInvoicesUseLocalMockDataOnly].
-final List<Invoice> _localMockInvoices = <Invoice>[
-  Invoice('—', '—', '₱0.00', 'May 05, 2026', '09:15 AM'),
-  Invoice('—', '—', '₱0.00', 'May 04, 2026', '06:40 PM'),
-  Invoice('—', '—', '₱0.00', 'May 03, 2026', '11:05 AM'),
-  Invoice('—', '—', '₱0.00', 'May 02, 2026', '08:22 PM'),
-  Invoice('—', '—', '₱0.00', 'May 01, 2026', '03:00 PM'),
-  Invoice('—', '—', '₱0.00', 'Apr 30, 2026', '12:00 PM'),
-];
+  Invoice get asInvoice => Invoice(vendor, category, amountText, date, time);
 
-// --- Safe display fallbacks (mirror HomeScreen row normalization) -------------
-
-bool _isMissingOrPlaceholderString(String value) {
-  final t = value.trim();
-  if (t.isEmpty) return true;
-  if (t == '—' || t == '-' || t == '–') return true;
-  if (t.toLowerCase() == 'n/a' || t.toLowerCase() == 'null') return true;
-  return false;
-}
-
-String _coerceInvoiceAmountDisplay(String amount) {
-  final t = amount.trim();
-  if (_isMissingOrPlaceholderString(t)) return '₱0.00';
-  if (t == '0' || t == '₱0' || t == '₱0.0' || t == '₱0.00') return '₱0.00';
-  return t;
-}
-
-String _coerceLabelOrDash(String value) {
-  final t = value.trim();
-  if (t.isEmpty) return '—';
-  if (t.toLowerCase() == 'null') return '—';
-  return t;
-}
-
-Invoice _normalizeInvoiceRow(Invoice invoice) {
-  return Invoice(
-    _coerceLabelOrDash(invoice.vendor),
-    _coerceLabelOrDash(invoice.category),
-    _coerceInvoiceAmountDisplay(invoice.amount),
-    invoice.date.trim().isEmpty ? '—' : invoice.date,
-    invoice.time.trim().isEmpty ? '—' : invoice.time,
-  );
-}
-
-List<Invoice> _normalizeInvoices(Iterable<Invoice> rows) => rows.map(_normalizeInvoiceRow).toList();
-
-/// Parses `Apr 21, 2026`-style dates from the table; returns null if unknown (row still shown).
-DateTime? _parseListDate(String raw) {
-  final t = raw.trim();
-  if (t.isEmpty || t == '—') return null;
-  const months = <String, int>{
-    'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-    'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
-  };
-  final m = RegExp(r'^([A-Za-z]{3})\s+(\d{1,2}),\s+(\d{4})$').firstMatch(t);
-  if (m == null) return null;
-  final mo = months[m.group(1)!];
-  final day = int.tryParse(m.group(2)!);
-  final year = int.tryParse(m.group(3)!);
-  if (mo == null || day == null || year == null) return null;
-  return DateTime(year, mo, day);
-}
-
-/// 0 = Date Range (all), 1 = Yesterday, 2 = Last 7, 3 = Last 15, 4 = Last 30
-bool _invoiceMatchesDateFilter(Invoice invoice, int filterIndex) {
-  if (filterIndex == 0) return true;
-  final dt = _parseListDate(invoice.date);
-  if (dt == null) return true;
-
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final d = DateTime(dt.year, dt.month, dt.day);
-
-  if (filterIndex == 1) {
-    final y = today.subtract(const Duration(days: 1));
-    return d == y;
+  factory _InvoiceItem.fromJson(Map<String, dynamic> json) {
+    return _InvoiceItem(
+      recordId: json['recordId']?.toString() ?? '',
+      vendor: _capitalizeFirst(
+        _safeText(json['vendor'] ?? json['store'], fallback: '—'),
+      ),
+      category: _safeText(json['category'], fallback: '—'),
+      amountText: _safeText(
+        json['amountText'] ??
+            json['totalAmountSpentText'] ??
+            json['totalAmountSpent'],
+        fallback: '₱0.00',
+      ),
+      date: _safeText(json['date'] ?? json['rawDate'], fallback: '—'),
+      time: _safeText(json['time'], fallback: '—'),
+      receiptImageUrl: json['receiptImageUrl']?.toString() ?? '',
+    );
   }
-  if (filterIndex == 2) {
-    final start = today.subtract(const Duration(days: 7));
-    return !d.isBefore(start) && !d.isAfter(today);
-  }
-  if (filterIndex == 3) {
-    final start = today.subtract(const Duration(days: 15));
-    return !d.isBefore(start) && !d.isAfter(today);
-  }
-  if (filterIndex == 4) {
-    final start = today.subtract(const Duration(days: 30));
-    return !d.isBefore(start) && !d.isAfter(today);
-  }
-  return true;
-}
 
-List<Invoice> _applyDateFilter(List<Invoice> normalized, int filterIndex) {
-  return normalized.where((inv) => _invoiceMatchesDateFilter(inv, filterIndex)).toList();
-}
+  static String _capitalizeFirst(String value) {
+    final text = value.trim();
 
-List<Invoice> _dashPlaceholderRows(int count) {
-  return List<Invoice>.generate(
-    count,
-    (_) => Invoice('—', '—', '₱0.00', '—', '—'),
-  );
+    if (text.isEmpty || text == '-' || text == '—') {
+      return '—';
+    }
+
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
+  static String _safeText(dynamic value, {required String fallback}) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'null') return fallback;
+    return text;
+  }
 }
 
 class InvoicesScreen extends StatefulWidget {
@@ -124,21 +74,167 @@ class InvoicesScreen extends StatefulWidget {
 }
 
 class _InvoicesScreenState extends State<InvoicesScreen> {
-  /// 0 Date Range, 1 Yesterday, 2 Last 7 Days, 3 Last 15 Days, 4 Last 30 Days
   int _dateFilterIndex = 0;
+  DateTimeRange? _customRange;
+  List<_InvoiceItem> _invoices = [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
 
-  List<Invoice> get _rawSource {
-    if (kInvoicesUseLocalMockDataOnly) return List<Invoice>.from(_localMockInvoices);
-    return List<Invoice>.from(DemoData.invoices);
+  late final VoidCallback _refreshListener;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _refreshListener = () {
+      if (mounted) {
+        _loadInvoices();
+      }
+    };
+
+    AppRefreshService.refreshTick.addListener(_refreshListener);
+
+    _loadInvoices();
   }
 
-  List<Invoice> get _displayInvoices {
-    final base = _normalizeInvoices(_rawSource);
-    var filtered = _applyDateFilter(base, _dateFilterIndex);
-    if (filtered.isEmpty && kInvoicesShowDashRowsWhenFilteredEmpty) {
-      filtered = _dashPlaceholderRows(3);
+  @override
+  void dispose() {
+    AppRefreshService.refreshTick.removeListener(_refreshListener);
+    super.dispose();
+  }
+
+  String get _filterValue {
+    switch (_dateFilterIndex) {
+      case 1:
+        return 'yesterday';
+      case 2:
+        return 'last7';
+      case 3:
+        return 'last15';
+      case 4:
+        return 'last30';
+      default:
+        return _customRange == null ? 'all' : 'dateRange';
     }
-    return filtered;
+  }
+
+  String _dateOnly(DateTime value) {
+    final y = value.year.toString().padLeft(4, '0');
+    final m = value.month.toString().padLeft(2, '0');
+    final d = value.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  Future<void> _loadInvoices() async {
+    try {
+      final user = AppSession.currentUser;
+      if (user == null || user.userId.isEmpty) {
+        throw Exception('No logged-in user found.');
+      }
+
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+        _errorMessage = '';
+      });
+
+      final body = <String, dynamic>{
+        'userId': user.userId,
+        'filter': _filterValue,
+      };
+
+      if (_filterValue == 'dateRange' && _customRange != null) {
+        body['startDate'] = _dateOnly(_customRange!.start);
+        body['endDate'] = _dateOnly(_customRange!.end);
+      }
+
+      final response = await http
+          .post(
+            Uri.parse(AppConfig.invoicesUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 60));
+
+      Map<String, dynamic> data = {};
+
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        throw Exception(
+          'Invalid response from n8n. Status: ${response.statusCode}. Body: ${response.body}',
+        );
+      }
+
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300 ||
+          data['success'] != true) {
+        throw Exception(data['message'] ?? 'Failed to load invoices.');
+      }
+
+      final rawInvoices = data['invoices'];
+      final loaded = <_InvoiceItem>[];
+
+      if (rawInvoices is List) {
+        for (final item in rawInvoices) {
+          if (item is Map) {
+            loaded.add(_InvoiceItem.fromJson(Map<String, dynamic>.from(item)));
+          }
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _invoices = loaded;
+        _isLoading = false;
+        _hasError = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _invoices = [];
+        _isLoading = false;
+        _hasError = true;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  Future<void> _selectFilter(int index) async {
+    if (index == 0) {
+      final now = DateTime.now();
+      final picked = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(now.year - 3),
+        lastDate: DateTime(now.year + 1),
+        initialDateRange: _customRange,
+      );
+
+      if (picked != null) {
+        setState(() {
+          _dateFilterIndex = 0;
+          _customRange = picked;
+        });
+        await _loadInvoices();
+      } else {
+        setState(() {
+          _dateFilterIndex = 0;
+          _customRange = null;
+        });
+        await _loadInvoices();
+      }
+      return;
+    }
+
+    setState(() {
+      _dateFilterIndex = index;
+      _customRange = null;
+    });
+
+    await _loadInvoices();
   }
 
   @override
@@ -152,17 +248,77 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _tappableFilterChip('Date Range', 0),
+              _tappableFilterChip(
+                _customRange == null ? 'Date Range' : 'Custom Range',
+                0,
+              ),
               _tappableFilterChip('Yesterday', 1),
               _tappableFilterChip('Last 7 Days', 2),
               _tappableFilterChip('Last 15 Days', 3),
               _tappableFilterChip('Last 30 Days', 4),
             ],
           ),
+
           const SizedBox(height: 14),
+
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: LinearProgressIndicator(
+                color: AppColors.purple,
+                backgroundColor: Color(0xFF4A4554),
+              ),
+            ),
+
+          if (_hasError)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Unable to load invoices',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _errorMessage,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _loadInvoices,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.lightPurple,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           Expanded(
-            child: SingleChildScrollView(
-              child: InvoiceTable(invoices: _displayInvoices, clickable: true),
+            child: RefreshIndicator(
+              onRefresh: _loadInvoices,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: _invoices.isEmpty
+                    ? AppCard(
+                        child: const Text(
+                          'No invoices found for this filter.',
+                          style: TextStyle(color: AppColors.muted),
+                        ),
+                      )
+                    : _InvoicesTable(invoices: _invoices),
+              ),
             ),
           ),
         ],
@@ -171,10 +327,140 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   Widget _tappableFilterChip(String label, int index) {
+    final active = _dateFilterIndex == index;
+
     return InkWell(
-      onTap: () => setState(() => _dateFilterIndex = index),
+      onTap: () => _selectFilter(index),
       borderRadius: BorderRadius.circular(20),
-      child: FilterChipLite(label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? AppColors.purple : AppColors.purple.withOpacity(.25),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.purple.withOpacity(.45)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 11),
+        ),
+      ),
+    );
+  }
+}
+
+class _InvoicesTable extends StatelessWidget {
+  final List<_InvoiceItem> invoices;
+
+  const _InvoicesTable({required this.invoices});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        children: [
+          const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Vendor',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Category',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              Text(
+                'Amount',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+
+          const Divider(color: Color(0xFF3A3846)),
+
+          ...invoices.map(
+            (invoice) => InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => InvoiceDetailsScreen(
+                      invoice: invoice.asInvoice,
+                      recordId: invoice.recordId,
+                      receiptImageUrl: invoice.receiptImageUrl,
+                    ),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC8B190),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: const Icon(
+                        Icons.receipt_long,
+                        size: 14,
+                        color: AppColors.bg,
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    Expanded(
+                      child: Text(
+                        invoice.vendor,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+
+                    Expanded(
+                      child: Text(
+                        invoice.category,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+
+                    Text(
+                      invoice.amountText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

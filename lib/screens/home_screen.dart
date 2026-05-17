@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../main.dart'; // AppColors, PageFrame, StatCard, AppCard, InvoiceTable, Invoice
 import '../config/app_config.dart';
 import '../services/auth_service.dart';
+import '../services/app_refresh_service.dart';
 
 class HomeDashboardData {
   final String totalExpensesDisplay;
@@ -106,8 +107,10 @@ class HomeDashboardData {
         if (item is Map) {
           recentInvoices.add(
             Invoice(
-              _stringValue(
-                item['store'] ?? item['vendor'] ?? item['Store'] ?? '—',
+              _capitalizeFirst(
+                _stringValue(
+                  item['store'] ?? item['vendor'] ?? item['Store'] ?? '—',
+                ),
               ),
               _stringValue(
                 item['category'] ?? item['Category'] ?? '—',
@@ -150,6 +153,16 @@ class HomeDashboardData {
       isOverBudget: json['isOverBudget'] == true,
       recentInvoices: recentInvoices,
     );
+  }
+
+  static String _capitalizeFirst(String value) {
+    final text = value.trim();
+
+    if (text.isEmpty || text == '-' || text == '—') {
+      return '—';
+    }
+
+    return text[0].toUpperCase() + text.substring(1);
   }
 
   static String _stringValue(dynamic value) {
@@ -200,10 +213,27 @@ class _HomeScreenState extends State<HomeScreen> {
   bool hasError = false;
   String errorMessage = '';
 
+  late final VoidCallback _refreshListener;
+
   @override
   void initState() {
     super.initState();
+
+    _refreshListener = () {
+      if (mounted) {
+        _loadHomeDashboard();
+      }
+    };
+
+    AppRefreshService.refreshTick.addListener(_refreshListener);
+
     _loadHomeDashboard();
+  }
+
+  @override
+  void dispose() {
+    AppRefreshService.refreshTick.removeListener(_refreshListener);
+    super.dispose();
   }
 
   Future<void> _loadHomeDashboard() async {
