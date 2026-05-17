@@ -1,6 +1,6 @@
 class AppConfig {
   // Default n8n instance URL - can be changed at runtime
-  static String _n8nBaseUrl = 'https://resibot.app.n8n.cloud';
+  static String _n8nBaseUrl = 'https://kashia.app.n8n.cloud';
 
   // Use true only when testing with "Listen for test event" in n8n.
   // Use false when your workflow is active/live.

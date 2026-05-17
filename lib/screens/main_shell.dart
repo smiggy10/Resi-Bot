@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart'; // For AppColors, Assets, NavItem
 import '../services/budget_service.dart';
+import '../services/app_refresh_service.dart';
 import 'home_screen.dart';
 import 'invoices_screen.dart';
 import 'analytics_screen.dart';
@@ -29,11 +30,26 @@ class _MainShellState extends State<MainShell> {
     );
 
     if (saved == true && mounted) {
+      AppRefreshService.refreshAll();
+
       setState(() {
         homeRefreshKey++;
         index = 0;
       });
     }
+  }
+
+  Future<void> _startReceiptScanFlow() async {
+    await ReceiptScanFlow.start(context);
+
+    if (!mounted) return;
+
+    AppRefreshService.refreshAll();
+
+    setState(() {
+      homeRefreshKey++;
+      index = 0;
+    });
   }
 
   List<Widget> get pages => [
@@ -61,7 +77,7 @@ class _MainShellState extends State<MainShell> {
         shape: const CircleBorder(
           side: BorderSide(color: Colors.white, width: 4),
         ),
-        onPressed: () => ReceiptScanFlow.start(context),
+        onPressed: _startReceiptScanFlow,
         child: const Icon(Icons.add, color: Colors.white, size: 36),
       ),
       bottomNavigationBar: BottomAppBar(

@@ -42,7 +42,7 @@ class ReceiptScanFlow {
 
     if (pickedImage == null || !context.mounted) return;
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ReceiptProcessingScreen(
@@ -52,6 +52,8 @@ class ReceiptScanFlow {
         ),
       ),
     );
+
+    AppRefreshService.refreshAll();
   }
 
   static Future<String?> _showCategoryDialog(BuildContext context) {
@@ -436,6 +438,11 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
     await _processReceiptWithN8n();
   }
 
+  void _finishAndRefresh() {
+    AppRefreshService.refreshAll();
+    Navigator.pop(context, true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -449,7 +456,7 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
               Row(
                 children: [
                   IconButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _finishAndRefresh,
                     icon: const Icon(
                       Icons.arrow_back_ios,
                       color: Colors.white,
@@ -593,13 +600,13 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
                               ? () {}
                               : hasError
                                   ? _retryProcessing
-                                  : () => Navigator.pop(context),
+                                  : _finishAndRefresh,
                         ),
                       ),
                       const SizedBox(height: 10),
                       Center(
                         child: TextButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: _finishAndRefresh,
                           child: const Text(
                             'Cancel',
                             style: TextStyle(color: AppColors.muted),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:device_preview/device_preview.dart';
 import 'screens/login_screen.dart';
-import 'screens/receipt_scan_screen.dart';
 
 void main() => runApp(
   DevicePreview(
