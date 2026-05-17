@@ -1,11 +1,22 @@
-2026/05/05-02:24:59.489 5bf8 Reusing MANIFEST C:\Users\Acer\AppData\Local\Temp\flutter_tools.a4e493c6\flutter_tools_chrome_device.fca24ba7\Default\Site Characteristics Database/MANIFEST-000001
-2026/05/05-02:24:59.490 5bf8 Recovering log #19
-2026/05/05-02:24:59.490 5bf8 Reusing old log C:\Users\Acer\AppData\Local\Temp\flutter_tools.a4e493c6\flutter_tools_chrome_device.fca24ba7\Default\Site Characteristics Database/000019.log 
-2026/05/05-02:24:59.491 5bf8 Delete type=0 #3
-2026/05/05-02:24:59.491 5bf8 Delete type=2 #4
-2026/05/05-02:24:59.491 5bf8 Delete type=2 #6
-2026/05/05-02:24:59.491 5bf8 Delete type=0 #6
-2026/05/05-02:24:59.491 5bf8 Delete type=0 #10
-2026/05/05-02:24:59.491 5bf8 Delete type=2 #11
-2026/05/05-02:24:59.491 5bf8 Delete type=2 #13
-2026/05/05-02:24:59.491 5bf8 Delete type=2 #14
+2026/05/05-02:37:31.881 1fec Reusing MANIFEST C:\Users\miggy\AppData\Local\Temp\flutter_tools.5d774bc4\flutter_tools_chrome_device.4f3da478\Default\Site Characteristics Database/MANIFEST-000001
+2026/05/05-02:37:31.883 4150 Compacting 17@0 + 0@1 files
+2026/05/05-02:37:31.888 4150 Generated table #48@0: 2 keys, 197 bytes
+2026/05/05-02:37:31.888 4150 Compacted 17@0 + 0@1 files => 197 bytes
+2026/05/05-02:37:31.889 4150 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/05/05-02:37:31.890 4150 Delete type=2 #4
+2026/05/05-02:37:31.890 4150 Delete type=2 #6
+2026/05/05-02:37:31.891 4150 Delete type=2 #11
+2026/05/05-02:37:31.891 4150 Delete type=2 #13
+2026/05/05-02:37:31.891 4150 Delete type=2 #14
+2026/05/05-02:37:31.891 4150 Delete type=2 #20
+2026/05/05-02:37:31.891 4150 Delete type=2 #22
+2026/05/05-02:37:31.891 4150 Delete type=2 #23
+2026/05/05-02:37:31.891 4150 Delete type=2 #24
+2026/05/05-02:37:31.891 4150 Delete type=2 #31
+2026/05/05-02:37:31.891 4150 Delete type=2 #39
+2026/05/05-02:37:31.892 4150 Delete type=2 #40
+2026/05/05-02:37:31.892 4150 Delete type=2 #41
+2026/05/05-02:37:31.892 4150 Delete type=2 #42
+2026/05/05-02:37:31.892 4150 Delete type=2 #43
+2026/05/05-02:37:31.892 4150 Delete type=2 #44
+2026/05/05-02:37:31.892 4150 Delete type=2 #45

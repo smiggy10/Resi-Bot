@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:device_preview/device_preview.dart';
 import 'screens/login_screen.dart';
 
-void main() => runApp(const ResiBotApp());
+void main() => runApp(
+  DevicePreview(
+    enabled: true,
+    builder: (context) => const ResiBotApp(),
+  ),
+);
 
 class AppColors {
   static const bg = Color(0xFF1C1C24);
@@ -20,6 +26,9 @@ class ResiBotApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      useInheritedMediaQuery: true,
+      locale: DevicePreview.locale(context),
+      builder: DevicePreview.appBuilder,
       title: 'Resi-Bot',
       theme: ThemeData(
         useMaterial3: true,
