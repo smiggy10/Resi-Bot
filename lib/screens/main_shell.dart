@@ -142,10 +142,8 @@ class _BudgetDialogState extends State<BudgetDialog> {
   }
 
   double _parseBudgetInput() {
-    final cleaned = budgetController.text
-        .replaceAll('₱', '')
-        .replaceAll(',', '')
-        .trim();
+    final cleaned =
+        budgetController.text.replaceAll('₱', '').replaceAll(',', '').trim();
 
     return double.tryParse(cleaned) ?? 0;
   }
@@ -297,9 +295,11 @@ class _BudgetDialogState extends State<BudgetDialog> {
                 ),
               ),
               const SizedBox(height: 20),
-              PrimaryButton(
-                label: isSaving ? 'Saving...' : 'Save Budget',
-                onTap: isSaving ? () {} : _saveBudget,
+              Center(
+                child: PrimaryButton(
+                  label: isSaving ? 'Saving...' : 'Save Budget',
+                  onTap: isSaving ? () {} : _saveBudget,
+                ),
               ),
               const SizedBox(height: 8),
               Center(
