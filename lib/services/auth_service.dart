@@ -30,7 +30,13 @@ class AppUser {
       email: json['email']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
       plan: json['plan']?.toString() ?? 'Free',
-      profilePicture: json['profilePicture']?.toString() ?? '',
+
+      // n8n can return either profilePicture or profilePictureUrl.
+      // This makes sure Flutter accepts both.
+      profilePicture: json['profilePictureUrl']?.toString().isNotEmpty == true
+          ? json['profilePictureUrl'].toString()
+          : json['profilePicture']?.toString() ?? '',
+
       profilePictureName: json['profilePictureName']?.toString() ?? '',
       profilePictureType: json['profilePictureType']?.toString() ?? '',
     );
@@ -50,7 +56,6 @@ class AppSession {
 }
 
 class AuthService {
-  // URLs are now configurable through AppConfig
   static String get registerUrl => AppConfig.registerUrl;
   static String get loginUrl => AppConfig.loginUrl;
 

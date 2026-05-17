@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../main.dart'; // For AppColors, PageFrame, AppCard, ProfileRow, PrimaryButton
+import '../main.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
 
@@ -17,6 +17,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = AppSession.currentUser;
+    final profilePicture = user?.profilePicture ?? '';
 
     return PageFrame(
       title: 'Profile',
@@ -26,9 +27,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             CircleAvatar(
               radius: 52,
               backgroundColor: Colors.white,
-              child: const Icon(Icons.person, size: 54, color: AppColors.muted),
+              backgroundImage: profilePicture.isNotEmpty
+                  ? NetworkImage(profilePicture)
+                  : null,
+              child: profilePicture.isEmpty
+                  ? const Icon(
+                      Icons.person,
+                      size: 54,
+                      color: AppColors.muted,
+                    )
+                  : null,
             ),
+
             const SizedBox(height: 12),
+
             Text(
               user?.fullName ?? 'Guest User',
               style: const TextStyle(
@@ -37,7 +49,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 20),
+
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -48,32 +62,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
+
             ProfileRow(
               icon: Icons.badge,
               label: 'User ID',
               value: user?.userId ?? '-',
             ),
+
             ProfileRow(
               icon: Icons.alternate_email,
               label: 'Email',
               value: user?.email ?? '-',
             ),
+
             ProfileRow(
               icon: Icons.phone,
               label: 'Phone Number',
               value: user?.phone ?? '-',
             ),
+
             ProfileRow(
               icon: Icons.workspace_premium,
               label: 'Subscription',
               value: user?.plan ?? 'Free',
               trailing: Icons.chevron_right,
             ),
+
             const SizedBox(height: 24),
+
             AppCard(
               child: Row(
                 children: [
-                  const Icon(Icons.notifications, color: AppColors.purple),
+                  const Icon(
+                    Icons.notifications,
+                    color: AppColors.purple,
+                  ),
                   const SizedBox(width: 12),
                   const Text(
                     'Notification',
@@ -88,7 +111,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+
             const SizedBox(height: 24),
+
             AppCard(
               child: ProfileRow(
                 icon: Icons.settings,
@@ -97,11 +122,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 trailing: Icons.chevron_right,
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const SettingsScreen(),
+                  ),
                 ),
               ),
             ),
+
             const SizedBox(height: 24),
+
             PrimaryButton(
               label: 'LOGOUT',
               onTap: () {
@@ -109,7 +138,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const LoginScreen(),
+                  ),
                   (_) => false,
                 );
               },
