@@ -1,7 +1,12 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 
+import '../config/app_config.dart';
+import '../services/auth_service.dart';
 import '../main.dart';
 
 class ReceiptScanFlow {
@@ -42,6 +47,7 @@ class ReceiptScanFlow {
         builder: (_) => ReceiptProcessingScreen(
           category: selectedCategory,
           imagePath: pickedImage.path,
+          imageName: pickedImage.name,
         ),
       ),
     );
@@ -86,9 +92,7 @@ class ReceiptScanFlow {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 6),
-
                     const Text(
                       'Select the category where this receipt belongs before scanning or uploading it.',
                       style: TextStyle(
@@ -96,9 +100,7 @@ class ReceiptScanFlow {
                         fontSize: 13,
                       ),
                     ),
-
                     const SizedBox(height: 18),
-
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -127,9 +129,7 @@ class ReceiptScanFlow {
                         );
                       }).toList(),
                     ),
-
                     const SizedBox(height: 24),
-
                     PrimaryButton(
                       label: 'CONFIRM CATEGORY',
                       onTap: () => Navigator.pop(
@@ -169,9 +169,7 @@ class ReceiptScanFlow {
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -183,9 +181,7 @@ class ReceiptScanFlow {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -196,18 +192,14 @@ class ReceiptScanFlow {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 _ImageSourceOption(
                   icon: Icons.camera_alt,
                   title: 'Take Photo',
                   subtitle: 'Open camera and capture the receipt',
                   onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
                 ),
-
                 const SizedBox(height: 10),
-
                 _ImageSourceOption(
                   icon: Icons.photo_library,
                   title: 'Upload from Gallery',
@@ -248,9 +240,7 @@ class _ImageSourceOption extends StatelessWidget {
               backgroundColor: AppColors.purple.withOpacity(.18),
               child: Icon(icon, color: AppColors.lightPurple),
             ),
-
             const SizedBox(width: 14),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +263,6 @@ class _ImageSourceOption extends StatelessWidget {
                 ],
               ),
             ),
-
             const Icon(
               Icons.chevron_right,
               color: AppColors.purple,
@@ -288,11 +277,13 @@ class _ImageSourceOption extends StatelessWidget {
 class ReceiptProcessingScreen extends StatefulWidget {
   final String category;
   final String imagePath;
+  final String imageName;
 
   const ReceiptProcessingScreen({
     super.key,
     required this.category,
     required this.imagePath,
+    required this.imageName,
   });
 
   @override
@@ -302,6 +293,9 @@ class ReceiptProcessingScreen extends StatefulWidget {
 
 class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
   bool isProcessing = true;
+  bool hasError = false;
+
+  Uint8List? receiptImageBytes;
 
   late String store;
   late String totalAmount;
@@ -315,23 +309,128 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
     totalAmount = 'Processing...';
     receiptDate = 'Processing...';
 
-    _mockProcessReceipt();
+    _processReceiptWithN8n();
   }
 
-  Future<void> _mockProcessReceipt() async {
-    await Future.delayed(const Duration(seconds: 2));
+  String _getMimeType(String fileName) {
+    final lowerName = fileName.toLowerCase();
 
-    if (!mounted) return;
+    if (lowerName.endsWith('.png')) {
+      return 'image/png';
+    }
 
+    if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+
+    if (lowerName.endsWith('.webp')) {
+      return 'image/webp';
+    }
+
+    return 'image/jpeg';
+  }
+
+  Future<void> _processReceiptWithN8n() async {
+    try {
+      final user = AppSession.currentUser;
+
+      if (user == null || user.userId.isEmpty) {
+        throw Exception('No logged-in user found.');
+      }
+
+      final xFile = XFile(widget.imagePath);
+      final imageBytes = await xFile.readAsBytes();
+
+      if (!mounted) return;
+
+      setState(() {
+        receiptImageBytes = imageBytes;
+      });
+
+      final base64Image = base64Encode(imageBytes);
+      final fileName = widget.imageName.isNotEmpty
+          ? widget.imageName
+          : 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final mimeType = _getMimeType(fileName);
+
+      final response = await http
+          .post(
+            Uri.parse(AppConfig.receiptUrl),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'userId': user.userId,
+              'category': widget.category,
+              'receiptImage': base64Image,
+              'receiptImageName': fileName,
+              'receiptImageType': mimeType,
+            }),
+          )
+          .timeout(const Duration(seconds: 90));
+
+      Map<String, dynamic> data = {};
+
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        throw Exception(
+          'Invalid response from n8n. Status: ${response.statusCode}. Body: ${response.body}',
+        );
+      }
+
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300 ||
+          data['success'] != true) {
+        throw Exception(data['message'] ?? 'Receipt processing failed.');
+      }
+
+      final receipt = data['receipt'] ?? {};
+
+      if (!mounted) return;
+
+      setState(() {
+        isProcessing = false;
+        hasError = false;
+        store = receipt['store']?.toString().isNotEmpty == true
+            ? receipt['store'].toString()
+            : 'Not detected';
+        totalAmount = receipt['totalAmountSpent']?.toString().isNotEmpty == true
+            ? receipt['totalAmountSpent'].toString()
+            : 'Not detected';
+        receiptDate = receipt['date']?.toString().isNotEmpty == true
+            ? receipt['date'].toString()
+            : 'Not detected';
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        isProcessing = false;
+        hasError = true;
+        store = 'Error';
+        totalAmount = '-';
+        receiptDate = '-';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Receipt processing failed: $e'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _retryProcessing() async {
     setState(() {
-      isProcessing = false;
-
-      // Temporary sample values.
-      // Later, these values will come from n8n AI extraction.
-      store = 'Sample Store';
-      totalAmount = '₱0.00';
-      receiptDate = 'Pending AI Result';
+      isProcessing = true;
+      hasError = false;
+      store = 'Processing...';
+      totalAmount = 'Processing...';
+      receiptDate = 'Processing...';
     });
+
+    await _processReceiptWithN8n();
   }
 
   @override
@@ -366,9 +465,7 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
                   const SizedBox(width: 48),
                 ],
               ),
-
               const SizedBox(height: 12),
-
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
@@ -406,9 +503,7 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 16),
-
                       const Text(
                         'Receipt Image',
                         style: TextStyle(
@@ -416,21 +511,28 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-
                       const SizedBox(height: 10),
-
                       ClipRRect(
                         borderRadius: BorderRadius.circular(14),
-                        child: Image.file(
-                          File(widget.imagePath),
-                          width: double.infinity,
-                          height: 300,
-                          fit: BoxFit.cover,
-                        ),
+                        child: receiptImageBytes != null
+                            ? Image.memory(
+                                receiptImageBytes!,
+                                width: double.infinity,
+                                height: 300,
+                                fit: BoxFit.cover,
+                              )
+                            : Container(
+                                width: double.infinity,
+                                height: 300,
+                                color: AppColors.card,
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.purple,
+                                  ),
+                                ),
+                              ),
                       ),
-
                       const SizedBox(height: 18),
-
                       AppCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,9 +558,7 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
                                   ),
                               ],
                             ),
-
                             const SizedBox(height: 14),
-
                             _ResultLine(
                               label: 'Store',
                               value: store,
@@ -478,28 +578,20 @@ class _ReceiptProcessingScreenState extends State<ReceiptProcessingScreen> {
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 20),
-
                       PrimaryButton(
                         label: isProcessing
                             ? 'PROCESSING...'
-                            : 'SAVE RECEIPT',
+                            : hasError
+                                ? 'RETRY'
+                                : 'DONE',
                         onTap: isProcessing
                             ? () {}
-                            : () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'This will be connected to n8n later.',
-                                    ),
-                                  ),
-                                );
-                              },
+                            : hasError
+                                ? _retryProcessing
+                                : () => Navigator.pop(context),
                       ),
-
                       const SizedBox(height: 10),
-
                       Center(
                         child: TextButton(
                           onPressed: () => Navigator.pop(context),
