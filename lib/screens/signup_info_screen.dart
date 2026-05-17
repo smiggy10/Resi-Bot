@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import '../main.dart'; // For AppColors, Assets, AppInput, PrimaryButton, AuthShell
 import 'signup_password_screen.dart';
 
@@ -33,13 +34,41 @@ class _SignupInfoScreenState extends State<SignupInfoScreen> {
 
     final pickedImage = await picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 60,
-      maxWidth: 800,
+      imageQuality: 85,
+      maxWidth: 1200,
     );
 
     if (pickedImage == null) return;
 
-    final bytes = await pickedImage.readAsBytes();
+    // Crop the image
+    final croppedImage = await ImageCropper().cropImage(
+      sourcePath: pickedImage.path,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop Profile Picture',
+          toolbarColor: AppColors.purple,
+          toolbarWidgetColor: Colors.white,
+          initAspectRatio: CropAspectRatioPreset.square,
+          lockAspectRatio: false,
+          hideBottomControls: false,
+          showCropGrid: true,
+        ),
+        IOSUiSettings(
+          title: 'Crop Profile Picture',
+          aspectRatioPresets: [
+            CropAspectRatioPreset.square,
+            CropAspectRatioPreset.ratio3x2,
+            CropAspectRatioPreset.original,
+          ],
+          rotateButtonsHidden: false,
+          resetButtonHidden: false,
+        ),
+      ],
+    );
+
+    if (croppedImage == null) return;
+
+    final bytes = await croppedImage.readAsBytes();
 
     setState(() {
       profilePicture = base64Encode(bytes);
@@ -77,66 +106,73 @@ class _SignupInfoScreenState extends State<SignupInfoScreen> {
   Widget build(BuildContext context) {
     return AuthShell(
       compactLogo: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Sign Up',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: AppColors.purple,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Sign Up',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: AppColors.purple,
+              ),
             ),
-          ),
-          const Text(
-            'Please add your picture and details.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-          const SizedBox(height: 28),
-          GestureDetector(
-            onTap: pickProfilePicture,
-            child: CircleAvatar(
-              radius: 42,
-              backgroundColor: const Color(0xFFF1EEF4),
-              backgroundImage: profilePicture.isNotEmpty
-                  ? MemoryImage(base64Decode(profilePicture))
-                  : null,
-              child: profilePicture.isEmpty
-                  ? Image.asset(Assets.user, height: 42)
-                  : null,
+            const Text(
+              'Please add your picture and details.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Tap to add profile picture',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey, fontSize: 11),
-          ),
-          const SizedBox(height: 20),
-          AppInput(
-            hint: 'Full Name',
-            icon: Assets.user,
-            controller: fullNameController,
-          ),
-          const SizedBox(height: 14),
-          AppInput(
-            hint: 'Email',
-            icon: Assets.gmail,
-            controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 14),
-          AppInput(
-            hint: 'Phone Number',
-            icon: Assets.phone,
-            controller: phoneController,
-            keyboardType: TextInputType.phone,
-          ),
-          const SizedBox(height: 30),
-          PrimaryButton(label: 'NEXT', onTap: next),
-        ],
+            const SizedBox(height: 28),
+            GestureDetector(
+              onTap: pickProfilePicture,
+              child: CircleAvatar(
+                radius: 42,
+                backgroundColor: const Color(0xFFF1EEF4),
+                backgroundImage: profilePicture.isNotEmpty
+                    ? MemoryImage(base64Decode(profilePicture))
+                    : null,
+                child: profilePicture.isEmpty
+                    ? Image.asset(Assets.user, height: 42)
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tap to add profile picture',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 11),
+            ),
+            const SizedBox(height: 20),
+            AppInput(
+              hint: 'Full Name',
+              icon: Assets.user,
+              controller: fullNameController,
+            ),
+            const SizedBox(height: 14),
+            AppInput(
+              hint: 'Email',
+              icon: Assets.gmail,
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 14),
+            AppInput(
+              hint: 'Phone Number',
+              icon: Assets.phone,
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 30),
+            PrimaryButton(label: 'NEXT', onTap: next),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }

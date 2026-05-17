@@ -39,7 +39,8 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
     if (passwordController.text.isEmpty ||
         confirmPasswordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter and confirm your password.')),
+        const SnackBar(
+            content: Text('Please enter and confirm your password.')),
       );
       return;
     }
@@ -71,40 +72,47 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
   Widget build(BuildContext context) {
     return AuthShell(
       compactLogo: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Password',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: AppColors.purple,
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Password',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: AppColors.purple,
+              ),
             ),
-          ),
-          const Text(
-            'Create a secure password for your account.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-          const SizedBox(height: 70),
-          AppInput(
-            hint: 'Password',
-            icon: Assets.password,
-            obscure: true,
-            controller: passwordController,
-          ),
-          const SizedBox(height: 14),
-          AppInput(
-            hint: 'Confirm Password',
-            icon: Assets.password,
-            obscure: true,
-            controller: confirmPasswordController,
-          ),
-          const SizedBox(height: 34),
-          PrimaryButton(label: 'SIGN UP', onTap: continueToPlan),
-        ],
+            const Text(
+              'Create a secure password for your account.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+            const SizedBox(height: 70),
+            AppInput(
+              hint: 'Password',
+              icon: Assets.password,
+              obscure: true,
+              controller: passwordController,
+            ),
+            const SizedBox(height: 14),
+            AppInput(
+              hint: 'Confirm Password',
+              icon: Assets.password,
+              obscure: true,
+              controller: confirmPasswordController,
+            ),
+            const SizedBox(height: 34),
+            PrimaryButton(label: 'SIGN UP', onTap: continueToPlan),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }

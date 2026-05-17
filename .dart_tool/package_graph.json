@@ -12,6 +12,7 @@
         "file_saver",
         "flutter",
         "http",
+        "image_cropper",
         "image_picker"
       ],
       "devDependencies": [
@@ -70,6 +71,15 @@
         "json_annotation",
         "provider",
         "shared_preferences"
+      ]
+    },
+    {
+      "name": "image_cropper",
+      "version": "8.1.0",
+      "dependencies": [
+        "flutter",
+        "image_cropper_for_web",
+        "image_cropper_platform_interface"
       ]
     },
     {
@@ -313,6 +323,25 @@
         "flutter",
         "intl",
         "path"
+      ]
+    },
+    {
+      "name": "image_cropper_for_web",
+      "version": "6.1.0",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "image_cropper_platform_interface",
+        "web"
+      ]
+    },
+    {
+      "name": "image_cropper_platform_interface",
+      "version": "7.2.0",
+      "dependencies": [
+        "flutter",
+        "http",
+        "plugin_platform_interface"
       ]
     },
     {
@@ -600,6 +629,13 @@
       ]
     },
     {
+      "name": "plugin_platform_interface",
+      "version": "2.1.8",
+      "dependencies": [
+        "meta"
+      ]
+    },
+    {
       "name": "file_selector_windows",
       "version": "0.9.3+5",
       "dependencies": [
@@ -616,13 +652,6 @@
         "flutter",
         "http",
         "plugin_platform_interface"
-      ]
-    },
-    {
-      "name": "plugin_platform_interface",
-      "version": "2.1.8",
-      "dependencies": [
-        "meta"
       ]
     },
     {
